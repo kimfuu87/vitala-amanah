@@ -33,11 +33,6 @@ export default function LoginPage(){
     router.replace(mode==="signup"?"/onboarding":"/app");
     router.refresh();
   }
-  async function google(){
-    setBusy(true);setMessage("");
-    const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${location.origin}/auth/callback?next=/onboarding`,queryParams:{prompt:"select_account"}}});
-    if(error){setMessage(error.message.includes("not enabled")?"Google sign-in is awaiting provider activation. Please use email or the demo account for now.":`Google sign-in could not start: ${error.message}`);setBusy(false)}
-  }
   async function reset(){const email=prompt("Enter the email address for your account");if(!email)return;const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/auth/callback?next=/login`});setMessage(error?.message||"If an account exists, a recovery email has been sent.")}
 
   return <main className="auth-page">
@@ -45,7 +40,7 @@ export default function LoginPage(){
     <section className="auth-panel"><div className="auth-card"><Link href="/" className="back-link">← Continue to public demo</Link><span className="eyebrow">SECURE ACCOUNT ACCESS</span><h2>{mode==="signin"?"Welcome back":"Create your account"}</h2><p>{mode==="signin"?"Sign in to continue your family plan.":"Start with the free plan. Verify your email before sensitive actions."}</p>
       <div className="auth-tabs" role="tablist"><button className={mode==="signin"?"active":""} onClick={()=>{setMode("signin");setMessage("")}}>Sign in</button><button className={mode==="signup"?"active":""} onClick={()=>{setMode("signup");setMessage("")}}>Sign up</button></div>
       {mode==="signin"&&<><button className="demo-login" onClick={demoLogin} disabled={busy}><span>▶</span><span><b>Enter with demo account</b><small>No password needed · fictional data only</small></span></button><div className="or"><span>or choose another sign-in method</span></div></>}
-      <button className="google" onClick={google} disabled={busy}>G&nbsp;&nbsp; Continue with Google</button><div className="or"><span>or use email</span></div>
+      <div className="or"><span>sign in securely with email</span></div>
       <form onSubmit={submit}>{mode==="signup"&&<label>Full name<input name="name" autoComplete="name" required/></label>}<label>Email address<input key={mode} name="email" type="email" autoComplete="email" required/></label><label>Password<div className="password"><input name="password" type={show?"text":"password"} minLength={8} autoComplete={mode==="signin"?"current-password":"new-password"} required/><button type="button" onClick={()=>setShow(!show)}>{show?"Hide":"Show"}</button></div></label>{mode==="signup"&&<><small className="hint">Use at least 8 characters. A longer passphrase is easier to remember.</small><label>Confirm password<input name="confirm" type="password" minLength={8} autoComplete="new-password" required/></label><label className="consent"><input type="checkbox" required/> <span>I accept the Terms and Privacy Notice.</span></label></>}{mode==="signin"&&<button type="button" className="forgot" onClick={reset}>Forgot password?</button>}{message&&<div className="auth-message" role="status">{message}</div>}<button className="primary auth-submit" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}</button></form>
       <p className="security-note">🔒 Authentication is handled by Supabase. Never share recovery codes or passwords.</p>
     </div></section>
