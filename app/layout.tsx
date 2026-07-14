@@ -6,6 +6,7 @@ import "./navigation.css";
 import "./public.css";
 import "./family-pack.css";
 import "./vitala-guide.css";
+import "./operations.css";
 
 export const metadata: Metadata = {
   title: "Vitala Amanah | Life, wealth and legacy",

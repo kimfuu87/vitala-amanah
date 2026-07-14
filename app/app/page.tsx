@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import PropertyModal from "./property-modal";
 import { FamilyPack, type FamilyPackRecord } from "./family-pack";
 import { VitalaGuide } from "./vitala-guide";
+import { ClaimsCentre, Documents, Professionals, type Claim, type DocumentRecord, type Professional } from "./operations";
 
 type Asset = { id:string; name:string; category:string; value:number; liquidity:string; institution:string|null; notes:string|null; address?:string; state?:string; property_type?:string; ownership_percentage?:number; joint_owner?:string; occupancy?:string; rental_income?:number; rental_manager?:string; rental_manager_contact?:string; tenancy_start?:string; tenancy_end?:string; tenancy_agreement_name?:string; tenancy_status?:string; loan_provider?:string; outstanding_loan?:number; monthly_instalment?:number; interest_rate?:number; loan_maturity?:string; maintenance_fee?:number; title_number?:string; tenure?:string; purchase_price?:number; purchase_date?:string };
 type Liability = { id:string; name:string; category:string; balance:number; lender:string|null; monthly_payment:number };
@@ -14,7 +15,7 @@ type Legacy = { id:string; title:string; record_type:string; status:string; prof
 type Reminder = { id:string; title:string; due_date:string; category:string; completed:boolean };
 type Retirement = { id:string; current_age:number; retirement_age:number; monthly_spending:number; current_savings:number; monthly_contribution:number; annual_return:number; inflation:number };
 type Profile = { full_name:string|null; onboarding_complete:boolean };
-type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"guide"|"reminders"|"settings";
+type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"claims"|"documents"|"professionals"|"guide"|"reminders"|"settings";
 
 const money = (n:number) => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR",maximumFractionDigits:0}).format(n);
 const date = (s:string|null) => s ? new Intl.DateTimeFormat("en-MY",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(s+"T00:00:00")) : "Not set";
@@ -22,6 +23,7 @@ const nav: {id:View; label:string; icon:string}[] = [
   {id:"home",label:"Home",icon:"⌂"},{id:"wealth",label:"My Wealth",icon:"◈"},{id:"protection",label:"Protection",icon:"◇"},
   {id:"legacy",label:"Legacy",icon:"✦"},{id:"retirement",label:"Retirement",icon:"◒"},{id:"family",label:"Family",icon:"♧"},
   {id:"familyPack",label:"Family Pack",icon:"▣"},
+  {id:"claims",label:"Claims Centre",icon:"✓"},{id:"documents",label:"Documents",icon:"▤"},{id:"professionals",label:"Professionals",icon:"◎"},
   {id:"guide",label:"Vitala Guide",icon:"✧"},
   {id:"reminders",label:"Reminders",icon:"◷"},{id:"settings",label:"Settings",icon:"⚙"}
 ];
@@ -33,12 +35,13 @@ export default function Home(){
   const [assets,setAssets]=useState<Asset[]>([]),[liabilities,setLiabilities]=useState<Liability[]>([]),[policies,setPolicies]=useState<Policy[]>([]);
   const [contacts,setContacts]=useState<Contact[]>([]),[legacy,setLegacy]=useState<Legacy[]>([]),[reminders,setReminders]=useState<Reminder[]>([]),[retirement,setRetirement]=useState<Retirement|null>(null);
   const [familyPack,setFamilyPack]=useState<FamilyPackRecord|null>(null);
+  const [claims,setClaims]=useState<Claim[]>([]),[documents,setDocuments]=useState<DocumentRecord[]>([]),[professionals,setProfessionals]=useState<Professional[]>([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[modal,setModal]=useState<string|null>(null),[notice,setNotice]=useState("");
   const [guideOpen,setGuideOpen]=useState(false);
   const load=useCallback(async()=>{ setLoading(true); setError(""); const names=["assets","liabilities","policies","contacts","legacy_records","reminders","retirement_profiles"] as const;
-    const result=await Promise.all([...names.map(n=>db.from(n).select("*").order("created_at" in {} ? "created_at":"id")),db.from("family_packs").select("*").maybeSingle()]);
+    const result=await Promise.all([...names.map(n=>db.from(n).select("*").order("created_at" in {} ? "created_at":"id")),db.from("family_packs").select("*").maybeSingle(),db.from("claims").select("*").is("deleted_at",null).order("created_at"),db.from("document_records").select("*").is("deleted_at",null).order("created_at"),db.from("professionals").select("*").is("deleted_at",null).order("created_at")]);
     const failed=result.find(r=>r.error); if(failed?.error){setError("The database schema is not ready yet. Apply the included Supabase migration, then refresh.");setLoading(false);return;}
-    setAssets((result[0].data||[]) as Asset[]);setLiabilities((result[1].data||[]) as Liability[]);setPolicies((result[2].data||[]) as Policy[]);setContacts((result[3].data||[]) as Contact[]);setLegacy((result[4].data||[]) as Legacy[]);setReminders((result[5].data||[]) as Reminder[]);setRetirement((result[6].data?.[0]||null) as Retirement|null);setFamilyPack((result[7].data||null) as FamilyPackRecord|null);setLoading(false);
+    setAssets((result[0].data||[]) as Asset[]);setLiabilities((result[1].data||[]) as Liability[]);setPolicies((result[2].data||[]) as Policy[]);setContacts((result[3].data||[]) as Contact[]);setLegacy((result[4].data||[]) as Legacy[]);setReminders((result[5].data||[]) as Reminder[]);setRetirement((result[6].data?.[0]||null) as Retirement|null);setFamilyPack((result[7].data||null) as FamilyPackRecord|null);setClaims((result[8].data||[]) as Claim[]);setDocuments((result[9].data||[]) as DocumentRecord[]);setProfessionals((result[10].data||[]) as Professional[]);setLoading(false);
   },[db]);
   useEffect(()=>{load();db.auth.getUser().then(async({data})=>{setAccount(data.user);if(data.user){const {data:p}=await db.from("profiles").select("full_name,onboarding_complete").eq("id",data.user.id).maybeSingle();if(!p?.onboarding_complete||!p.full_name?.trim()){location.replace("/onboarding");return}setProfile(p as Profile)}});const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>setAccount(session?.user||null));return()=>subscription.unsubscribe()},[load,db]);
   useEffect(()=>{if(!menu)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setMenu(false)};document.addEventListener("keydown",close);document.body.classList.add("drawer-open");return()=>{document.removeEventListener("keydown",close);document.body.classList.remove("drawer-open")}},[menu]);
@@ -63,6 +66,9 @@ export default function Home(){
         {view==="retirement"&&<RetirementView profile={retirement} save={async(v)=>{await db.from("retirement_profiles").update(v).eq("id",retirement?.id);setNotice("Retirement assumptions updated.");await load()}}/>}
         {view==="family"&&<Family contacts={contacts} assets={assets} policies={policies} add={()=>setModal("contact")} remove={remove}/>} 
         {view==="familyPack"&&<FamilyPack record={familyPack} save={async draft=>{if(!account)return;const payload={owner_id:account.id,sections:draft.sections,completed_sections:draft.completed_sections,status:draft.completed_sections.length>=14?"ready":"draft"};const {error:e}=await db.from("family_packs").upsert(payload,{onConflict:"owner_id"});if(e){setNotice(`Could not save Family Pack: ${e.message}`);return}setNotice("Family Pack saved.");await load()}} preview={()=>window.print()}/>} 
+        {view==="claims"&&<ClaimsCentre records={claims} save={save} remove={remove}/>}
+        {view==="documents"&&<Documents records={documents} save={save} remove={remove}/>}
+        {view==="professionals"&&<Professionals records={professionals} save={save} remove={remove}/>}
         {view==="guide"&&<VitalaGuide embedded facts={{score,assets:assets.length,liabilities:liabilities.length,policies:policies.length,trusted:contacts.filter(c=>c.emergency_access).length,legacy:legacy.length,packProgress,retirementAge:retirement?.retirement_age}}/>}
         {view==="reminders"&&<Reminders records={reminders} add={()=>setModal("reminder")} toggle={async(r)=>{await db.from("reminders").update({completed:!r.completed}).eq("id",r.id);await load()}} remove={remove}/>} 
         {view==="settings"&&<Settings/>}
