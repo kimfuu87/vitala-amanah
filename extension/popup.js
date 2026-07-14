@@ -1,7 +1,7 @@
 const APP="https://vitala-amanah.vercel.app";
 const open=path=>chrome.tabs.create({url:`${APP}${path}`});
-document.querySelector("#open").addEventListener("click",()=>open("/"));
-document.querySelector("#dashboard").addEventListener("click",()=>open("/"));
+document.querySelector("#open").addEventListener("click",()=>open("/app"));
+document.querySelector("#dashboard").addEventListener("click",()=>open("/app"));
 document.querySelector("#signin").addEventListener("click",()=>open("/login"));
 const money=value=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR",maximumFractionDigits:0}).format(value);
 async function summary(){const box=document.querySelector("#summary");try{const response=await fetch(`${APP}/api/extension/summary`);if(!response.ok)throw new Error();const data=await response.json();box.innerHTML=`<div><strong>${data.readiness}</strong><small>Readiness score</small></div><div><strong>${data.actions}</strong><small>Upcoming actions</small></div><div class="wide"><span>Net worth estimate</span><b>${money(data.netWorth)}</b></div>`}catch{box.innerHTML="<span>Open the full app to view readiness.</span>"}}summary();

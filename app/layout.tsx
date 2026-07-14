@@ -3,6 +3,7 @@ import "./globals.css";
 import "./auth.css";
 import "./demo.css";
 import "./navigation.css";
+import "./public.css";
 
 export const metadata: Metadata = {
   title: "Vitala Amanah | Life, wealth and legacy",

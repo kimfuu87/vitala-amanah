@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage(){
   const db=useMemo(()=>createClient(),[]),router=useRouter();
   const [mode,setMode]=useState<"signin"|"signup">("signin"),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[show,setShow]=useState(false);
-  useEffect(()=>{db.auth.getUser().then(({data})=>{if(data.user)router.replace("/")})},[db,router]);
+  useEffect(()=>{db.auth.getUser().then(({data})=>{if(data.user)router.replace("/app")})},[db,router]);
+  useEffect(()=>{if(new URLSearchParams(location.search).get("mode")==="signup")setMode("signup")},[]);
 
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setMessage("");
@@ -20,7 +21,7 @@ export default function LoginPage(){
       setMessage(error?.message||"Check your email to verify your new account.");
     }else{
       const {error}=await db.auth.signInWithPassword({email,password});
-      if(error)setMessage("We could not sign you in. Check your details and try again.");else router.replace("/");
+      if(error)setMessage("We could not sign you in. Check your details and try again.");else router.replace("/app");
     }
     setBusy(false);
   }
@@ -29,7 +30,7 @@ export default function LoginPage(){
     setBusy(true);setMessage("");
     const response=await fetch("/api/auth/demo",{method:"POST"});
     if(!response.ok){setMessage("The demo account is temporarily unavailable.");setBusy(false);return}
-    router.replace("/");
+    router.replace("/app");
     router.refresh();
   }
   async function google(){await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${location.origin}/auth/callback`}})}
