@@ -6,6 +6,7 @@ import PropertyModal from "./property-modal";
 import { FamilyPack, type FamilyPackRecord } from "./family-pack";
 import { VitalaGuide } from "./vitala-guide";
 import { ClaimsCentre, Documents, Professionals, type Claim, type DocumentRecord, type Professional } from "./operations";
+import { ReportsCentre } from "./reports-centre";
 
 type Asset = { id:string; name:string; category:string; value:number; liquidity:string; institution:string|null; notes:string|null; address?:string; state?:string; property_type?:string; ownership_percentage?:number; joint_owner?:string; occupancy?:string; rental_income?:number; rental_manager?:string; rental_manager_contact?:string; tenancy_start?:string; tenancy_end?:string; tenancy_agreement_name?:string; tenancy_status?:string; loan_provider?:string; outstanding_loan?:number; monthly_instalment?:number; interest_rate?:number; loan_maturity?:string; maintenance_fee?:number; title_number?:string; tenure?:string; purchase_price?:number; purchase_date?:string };
 type Liability = { id:string; name:string; category:string; balance:number; lender:string|null; monthly_payment:number };
@@ -15,7 +16,7 @@ type Legacy = { id:string; title:string; record_type:string; status:string; prof
 type Reminder = { id:string; title:string; due_date:string; category:string; completed:boolean };
 type Retirement = { id:string; current_age:number; retirement_age:number; monthly_spending:number; current_savings:number; monthly_contribution:number; annual_return:number; inflation:number };
 type Profile = { full_name:string|null; onboarding_complete:boolean };
-type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"claims"|"documents"|"professionals"|"guide"|"reminders"|"settings";
+type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"claims"|"documents"|"professionals"|"guide"|"reports"|"reminders"|"settings";
 
 const money = (n:number) => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR",maximumFractionDigits:0}).format(n);
 const date = (s:string|null) => s ? new Intl.DateTimeFormat("en-MY",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(s+"T00:00:00")) : "Not set";
@@ -24,7 +25,7 @@ const nav: {id:View; label:string; icon:string}[] = [
   {id:"legacy",label:"Legacy",icon:"✦"},{id:"retirement",label:"Retirement",icon:"◒"},{id:"family",label:"Family",icon:"♧"},
   {id:"familyPack",label:"Family Pack",icon:"▣"},
   {id:"claims",label:"Claims Centre",icon:"✓"},{id:"documents",label:"Documents",icon:"▤"},{id:"professionals",label:"Professionals",icon:"◎"},
-  {id:"guide",label:"Vitala Guide",icon:"✧"},
+  {id:"guide",label:"Vitala Guide",icon:"✧"},{id:"reports",label:"Reports",icon:"▧"},
   {id:"reminders",label:"Reminders",icon:"◷"},{id:"settings",label:"Settings",icon:"⚙"}
 ];
 
@@ -70,6 +71,7 @@ export default function Home(){
         {view==="documents"&&<Documents records={documents} save={save} remove={remove}/>}
         {view==="professionals"&&<Professionals records={professionals} save={save} remove={remove}/>}
         {view==="guide"&&<VitalaGuide embedded facts={{score,assets:assets.length,liabilities:liabilities.length,policies:policies.length,trusted:contacts.filter(c=>c.emergency_access).length,legacy:legacy.length,packProgress,retirementAge:retirement?.retirement_age}}/>}
+        {view==="reports"&&<ReportsCentre/>}
         {view==="reminders"&&<Reminders records={reminders} add={()=>setModal("reminder")} toggle={async(r)=>{await db.from("reminders").update({completed:!r.completed}).eq("id",r.id);await load()}} remove={remove}/>} 
         {view==="settings"&&<Settings/>}
       </>}</div>
