@@ -8,8 +8,8 @@ export async function POST(request:Request){
   const value=body as {name?:unknown;category?:unknown;value?:unknown;institution?:unknown};
   const name=String(value.name||"").trim(),category=String(value.category||"Other").trim(),amount=Number(value.value);
   if(name.length<2||name.length>120||!Number.isFinite(amount)||amount<0||amount>999999999999)return NextResponse.json({error:"Check the name and value"},{status:400,headers});
-  const db=await createClient();const {data,error}=await db.from("assets").insert({name,category:category.slice(0,60),value:amount,institution:String(value.institution||"Chrome companion").slice(0,120),liquidity:"Liquid",notes:"Added from the Vitala Amanah Chrome companion."}).select("id").single();
+  const db=await createClient();const {data,error}=await db.from("assets").insert({name,category:category.slice(0,60),value:amount,institution:String(value.institution||"Chrome companion").slice(0,120),liquidity:"Liquid",notes:"Added from the Vitala Amanah Chrome companion.",owner_id:"432015d7-7053-4c98-88ff-c0d80faa08bf",is_demo:true}).select("id").single();
   if(error)return NextResponse.json({error:"Could not save this record"},{status:500,headers});
-  await db.from("audit_events").insert({action:"extension_capture",entity_type:"assets",entity_id:data.id,details:{source:"chrome_companion"}});
+  await db.from("audit_events").insert({action:"extension_capture",entity_type:"assets",entity_id:data.id,details:{source:"chrome_companion"},owner_id:"432015d7-7053-4c98-88ff-c0d80faa08bf",is_demo:true});
   return NextResponse.json({ok:true,id:data.id},{status:201,headers});
 }

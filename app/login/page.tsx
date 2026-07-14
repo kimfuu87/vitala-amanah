@@ -17,7 +17,7 @@ export default function LoginPage(){
     if(mode==="signup"){
       const name=String(data.get("name")||""),confirm=String(data.get("confirm")||"");
       if(password!==confirm){setMessage("Passwords do not match.");setBusy(false);return}
-      const {error}=await db.auth.signUp({email,password,options:{data:{full_name:name},emailRedirectTo:`${location.origin}/auth/callback`}});
+      const {error}=await db.auth.signUp({email,password,options:{data:{full_name:name},emailRedirectTo:`${location.origin}/auth/callback?next=/onboarding`}});
       setMessage(error?.message||"Check your email to verify your new account.");
     }else{
       const {error}=await db.auth.signInWithPassword({email,password});
@@ -30,10 +30,10 @@ export default function LoginPage(){
     setBusy(true);setMessage("");
     const response=await fetch("/api/auth/demo",{method:"POST"});
     if(!response.ok){setMessage("The demo account is temporarily unavailable.");setBusy(false);return}
-    router.replace("/app");
+    router.replace(mode==="signup"?"/onboarding":"/app");
     router.refresh();
   }
-  async function google(){await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${location.origin}/auth/callback`}})}
+  async function google(){await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${location.origin}/auth/callback?next=/onboarding`}})}
   async function reset(){const email=prompt("Enter the email address for your account");if(!email)return;const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/auth/callback?next=/login`});setMessage(error?.message||"If an account exists, a recovery email has been sent.")}
 
   return <main className="auth-page">

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Asset = { id:string; name:string; category:string; value:number; liquidity:string; institution:string|null; notes:string|null };
+type Asset = { id:string; name:string; category:string; value:number; liquidity:string; institution:string|null; notes:string|null; address?:string; state?:string; property_type?:string; ownership_percentage?:number; joint_owner?:string; occupancy?:string; rental_income?:number; rental_manager?:string; rental_manager_contact?:string; tenancy_start?:string; tenancy_end?:string; tenancy_agreement_name?:string; tenancy_status?:string; loan_provider?:string; outstanding_loan?:number; monthly_instalment?:number; interest_rate?:number; loan_maturity?:string; maintenance_fee?:number; title_number?:string; tenure?:string; purchase_price?:number; purchase_date?:string };
 type Liability = { id:string; name:string; category:string; balance:number; lender:string|null; monthly_payment:number };
 type Policy = { id:string; provider:string; policy_type:string; masked_number:string|null; coverage:number; premium:number; renewal_date:string|null; status:string; claims_contact:string|null };
 type Contact = { id:string; name:string; relationship:string; role:string; phone:string|null; email:string|null; emergency_access:boolean };
@@ -22,7 +22,7 @@ const nav: {id:View; label:string; icon:string}[] = [
 
 export default function Home(){
   const db=useMemo(()=>createClient(),[]); const [view,setView]=useState<View>("home"); const [menu,setMenu]=useState(false);
-  const [account,setAccount]=useState<{email?:string}|null>(null);
+  const [account,setAccount]=useState<{id:string;email?:string}|null>(null);
   const [assets,setAssets]=useState<Asset[]>([]),[liabilities,setLiabilities]=useState<Liability[]>([]),[policies,setPolicies]=useState<Policy[]>([]);
   const [contacts,setContacts]=useState<Contact[]>([]),[legacy,setLegacy]=useState<Legacy[]>([]),[reminders,setReminders]=useState<Reminder[]>([]),[retirement,setRetirement]=useState<Retirement|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[modal,setModal]=useState<string|null>(null),[notice,setNotice]=useState("");
@@ -33,7 +33,7 @@ export default function Home(){
   },[db]);
   useEffect(()=>{load();db.auth.getUser().then(({data})=>setAccount(data.user));const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>setAccount(session?.user||null));return()=>subscription.unsubscribe()},[load,db]);
   useEffect(()=>{if(!menu)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setMenu(false)};document.addEventListener("keydown",close);document.body.classList.add("drawer-open");return()=>{document.removeEventListener("keydown",close);document.body.classList.remove("drawer-open")}},[menu]);
-  async function save(table:string, values:Record<string,unknown>){const {error:e}=await db.from(table).insert(values);if(e){setNotice("Could not save. Please try again.");return} await db.from("audit_events").insert({action:"created",entity_type:table,details:{name:values.name||values.title||values.provider}});setModal(null);setNotice("Saved securely to your family organiser.");await load()}
+  async function save(table:string, values:Record<string,unknown>){if(!account){location.href="/login";return}const owned={...values,owner_id:account.id,is_demo:account.email==="demo@vitala-amanah.app"};const {error:e}=await db.from(table).insert(owned);if(e){setNotice(`Could not save: ${e.message}`);return} await db.from("audit_events").insert({action:"created",entity_type:table,details:{name:values.name||values.title||values.provider},owner_id:account.id,is_demo:owned.is_demo});setModal(null);setNotice("Saved securely to your family organiser.");await load()}
   async function remove(table:string,id:string){if(!confirm("Delete this record? This removes it from your organiser."))return;await db.from(table).delete().eq("id",id);setNotice("Record deleted.");await load()}
   const totals=useMemo(()=>({assets:assets.reduce((a,x)=>a+Number(x.value),0),debts:liabilities.reduce((a,x)=>a+Number(x.balance),0),coverage:policies.reduce((a,x)=>a+Number(x.coverage),0)}),[assets,liabilities,policies]);
   const score=Math.min(100,25+(assets.length?15:0)+(policies.length?15:0)+(contacts.some(c=>c.emergency_access)?20:0)+(legacy.some(l=>l.status!=="Needs review")?15:0)+(reminders.length?10:0));
