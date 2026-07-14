@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage(){
   const db=useMemo(()=>createClient(),[]),router=useRouter();
   const [mode,setMode]=useState<"signin"|"signup">("signin"),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[show,setShow]=useState(false);
-  useEffect(()=>{db.auth.getUser().then(({data})=>{if(data.user)router.replace("/app")})},[db,router]);
+  useEffect(()=>{db.auth.getUser().then(({data})=>{if(data.user)router.replace("/onboarding")})},[db,router]);
   useEffect(()=>{if(new URLSearchParams(location.search).get("mode")==="signup")setMode("signup")},[]);
 
   async function submit(event:FormEvent<HTMLFormElement>){
@@ -21,7 +21,7 @@ export default function LoginPage(){
       setMessage(error?.message||"Check your email to verify your new account.");
     }else{
       const {error}=await db.auth.signInWithPassword({email,password});
-      if(error)setMessage("We could not sign you in. Check your details and try again.");else router.replace("/app");
+      if(error)setMessage("We could not sign you in. Check your details and try again.");else router.replace("/onboarding");
     }
     setBusy(false);
   }

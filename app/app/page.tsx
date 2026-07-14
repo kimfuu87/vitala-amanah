@@ -11,6 +11,7 @@ type Contact = { id:string; name:string; relationship:string; role:string; phone
 type Legacy = { id:string; title:string; record_type:string; status:string; professional:string|null; review_date:string|null; notes:string|null };
 type Reminder = { id:string; title:string; due_date:string; category:string; completed:boolean };
 type Retirement = { id:string; current_age:number; retirement_age:number; monthly_spending:number; current_savings:number; monthly_contribution:number; annual_return:number; inflation:number };
+type Profile = { full_name:string|null; onboarding_complete:boolean };
 type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"reminders"|"settings";
 
 const money = (n:number) => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR",maximumFractionDigits:0}).format(n);
@@ -24,6 +25,7 @@ const nav: {id:View; label:string; icon:string}[] = [
 export default function Home(){
   const db=useMemo(()=>createClient(),[]); const [view,setView]=useState<View>("home"); const [menu,setMenu]=useState(false);
   const [account,setAccount]=useState<{id:string;email?:string}|null>(null);
+  const [profile,setProfile]=useState<Profile|null>(null);
   const [assets,setAssets]=useState<Asset[]>([]),[liabilities,setLiabilities]=useState<Liability[]>([]),[policies,setPolicies]=useState<Policy[]>([]);
   const [contacts,setContacts]=useState<Contact[]>([]),[legacy,setLegacy]=useState<Legacy[]>([]),[reminders,setReminders]=useState<Reminder[]>([]),[retirement,setRetirement]=useState<Retirement|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[modal,setModal]=useState<string|null>(null),[notice,setNotice]=useState("");
@@ -32,7 +34,7 @@ export default function Home(){
     const failed=result.find(r=>r.error); if(failed?.error){setError("The database schema is not ready yet. Apply the included Supabase migration, then refresh.");setLoading(false);return;}
     setAssets((result[0].data||[]) as Asset[]);setLiabilities((result[1].data||[]) as Liability[]);setPolicies((result[2].data||[]) as Policy[]);setContacts((result[3].data||[]) as Contact[]);setLegacy((result[4].data||[]) as Legacy[]);setReminders((result[5].data||[]) as Reminder[]);setRetirement((result[6].data?.[0]||null) as Retirement|null);setLoading(false);
   },[db]);
-  useEffect(()=>{load();db.auth.getUser().then(({data})=>setAccount(data.user));const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>setAccount(session?.user||null));return()=>subscription.unsubscribe()},[load,db]);
+  useEffect(()=>{load();db.auth.getUser().then(async({data})=>{setAccount(data.user);if(data.user){const {data:p}=await db.from("profiles").select("full_name,onboarding_complete").eq("id",data.user.id).maybeSingle();if(!p?.onboarding_complete||!p.full_name?.trim()){location.replace("/onboarding");return}setProfile(p as Profile)}});const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>setAccount(session?.user||null));return()=>subscription.unsubscribe()},[load,db]);
   useEffect(()=>{if(!menu)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setMenu(false)};document.addEventListener("keydown",close);document.body.classList.add("drawer-open");return()=>{document.removeEventListener("keydown",close);document.body.classList.remove("drawer-open")}},[menu]);
   async function save(table:string, values:Record<string,unknown>){if(!account){location.href="/login";return}const owned={...values,owner_id:account.id,is_demo:account.email==="demo@vitala-amanah.app"};const {error:e}=await db.from(table).insert(owned);if(e){setNotice(`Could not save: ${e.message}`);return} await db.from("audit_events").insert({action:"created",entity_type:table,details:{name:values.name||values.title||values.provider},owner_id:account.id,is_demo:owned.is_demo});setModal(null);setNotice("Saved securely to your family organiser.");await load()}
   async function remove(table:string,id:string){if(!confirm("Delete this record? This removes it from your organiser."))return;await db.from(table).delete().eq("id",id);setNotice("Record deleted.");await load()}
@@ -47,7 +49,7 @@ export default function Home(){
     {menu&&<button className="backdrop" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}<main>
       <header><button className="hamburger" onClick={()=>setMenu(!menu)} aria-label={menu?"Close navigation":"Open navigation"} aria-expanded={menu}>☰</button><div className="mobile-brand">Vitala Amanah</div><div className="header-actions"><button className="text-button" onClick={()=>setNotice("Bahasa Melayu content is being prepared; English remains selected.")}>EN / BM</button>{account?<button className="avatar" aria-label="Account profile" title={account.email}>{account.email?.slice(0,2).toUpperCase()}</button>:<a className="header-login" href="/login">Sign in</a>}</div></header>
       <div className="content">{notice&&<div className="toast" role="status">✓ {notice}</div>}{error&&<div className="error"><b>Database setup needed</b><span>{error}</span></div>}{loading?<Loading/>:<>
-        {view==="home"&&<Dashboard totals={totals} score={score} reminders={reminders} assets={assets} go={go} add={()=>setModal("asset")}/>} 
+        {view==="home"&&<Dashboard name={profile?.full_name||account?.email?.split("@")[0]||"there"} totals={totals} score={score} reminders={reminders} assets={assets} go={go} add={()=>setModal("asset")}/>}
         {view==="wealth"&&<Wealth assets={assets} liabilities={liabilities} totals={totals} add={setModal} remove={remove}/>} 
         {view==="protection"&&<Protection policies={policies} add={()=>setModal("policy")} remove={remove}/>} 
         {view==="legacy"&&<LegacyView records={legacy} add={()=>setModal("legacy")} remove={remove}/>} 
@@ -61,8 +63,8 @@ export default function Home(){
 
 function Title({eyebrow,title,copy,action,label="Add record"}:{eyebrow:string;title:string;copy:string;action?:()=>void;label?:string}){return <div className="title-row"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button className="primary" onClick={action}>＋ {label}</button>}</div>}
 function Loading(){return <div className="loading"><div/><div/><div/></div>}
-function Dashboard({totals,score,reminders,assets,go,add}:{totals:{assets:number;debts:number;coverage:number};score:number;reminders:Reminder[];assets:Asset[];go:(v:View)=>void;add:()=>void}){return <>
-  <Title eyebrow="Tuesday, 14 July" title="Good morning, Nadia" copy="Your family plan is taking shape. Here is the clearest next step."/>
+function Dashboard({name,totals,score,reminders,assets,go,add}:{name:string;totals:{assets:number;debts:number;coverage:number};score:number;reminders:Reminder[];assets:Asset[];go:(v:View)=>void;add:()=>void}){return <>
+  <Title eyebrow={new Intl.DateTimeFormat("en-MY",{weekday:"long",day:"numeric",month:"long"}).format(new Date())} title={`Good morning, ${name}`} copy="Your family plan is taking shape. Here is the clearest next step."/>
   <section className="hero-card"><div><span className="eyebrow light">NEXT BEST STEP</span><h2>Add one more financial account</h2><p>A complete wealth picture makes your emergency summary more useful to your family.</p><button className="champagne" onClick={add}>Add an asset</button></div><div className="score-ring" style={{"--score":`${score*3.6}deg`} as React.CSSProperties}><span><b>{score}</b><small>Readiness</small></span></div></section>
   <div className="metrics"><Metric label="Estimated net worth" value={money(totals.assets-totals.debts)} note={`${assets.length} asset records`}/><Metric label="Total protection" value={money(totals.coverage)} note="User-recorded coverage"/><Metric label="Upcoming actions" value={String(reminders.filter(r=>!r.completed).length)} note="Reviews and renewals"/></div>
   <div className="two-col"><section className="panel"><div className="panel-head"><div><span className="eyebrow">YOUR WEALTH</span><h2>At a glance</h2></div><button className="link" onClick={()=>go("wealth")}>View wealth →</button></div><div className="bar"><span style={{width:`${totals.assets?Math.max(8,(totals.assets-totals.debts)/totals.assets*100):0}%`}}/></div><div className="split"><div><small>Assets</small><b>{money(totals.assets)}</b></div><div><small>Liabilities</small><b>{money(totals.debts)}</b></div></div></section>

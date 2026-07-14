@@ -8,7 +8,7 @@ import "../public.css";
 export default function Onboarding(){
   const db=useMemo(()=>createClient(),[]),router=useRouter();
   const [accountType,setAccountType]=useState("individual"),[goal,setGoal]=useState("organise_assets"),[name,setName]=useState(""),[error,setError]=useState("");
-  useEffect(()=>{db.auth.getUser().then(async({data})=>{if(!data.user)return;const {data:p}=await db.from("profiles").select("onboarding_complete").eq("id",data.user.id).maybeSingle();if(p?.onboarding_complete)router.replace("/app")})},[db,router]);
+  useEffect(()=>{db.auth.getUser().then(async({data})=>{if(!data.user)return;const suggested=String(data.user.user_metadata?.full_name||data.user.user_metadata?.name||"").trim();if(suggested)setName(suggested);const {data:p}=await db.from("profiles").select("full_name,onboarding_complete").eq("id",data.user.id).maybeSingle();if(p?.onboarding_complete&&p.full_name?.trim())router.replace("/app")})},[db,router]);
   async function submit(e:FormEvent){e.preventDefault();setError("");const {data:{user}}=await db.auth.getUser();if(!user)return router.replace("/login");
     const {error:profileError}=await db.from("profiles").upsert({id:user.id,full_name:name,account_type:accountType,primary_goal:goal,plan:"free",onboarding_complete:true});
     if(profileError){setError(profileError.message);return}
