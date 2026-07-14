@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Vitala Amanah Companion",
+  "version": "0.1.0",
+  "description": "View readiness and quickly add a record to Vitala Amanah.",
+  "action": { "default_title": "Vitala Amanah", "default_popup": "popup.html" },
+  "permissions": ["activeTab"],
+  "host_permissions": ["https://vitala-amanah.vercel.app/*"],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'" }
+}
