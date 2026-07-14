@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PropertyModal from "./property-modal";
 import { FamilyPack, type FamilyPackRecord } from "./family-pack";
+import { VitalaGuide } from "./vitala-guide";
 
 type Asset = { id:string; name:string; category:string; value:number; liquidity:string; institution:string|null; notes:string|null; address?:string; state?:string; property_type?:string; ownership_percentage?:number; joint_owner?:string; occupancy?:string; rental_income?:number; rental_manager?:string; rental_manager_contact?:string; tenancy_start?:string; tenancy_end?:string; tenancy_agreement_name?:string; tenancy_status?:string; loan_provider?:string; outstanding_loan?:number; monthly_instalment?:number; interest_rate?:number; loan_maturity?:string; maintenance_fee?:number; title_number?:string; tenure?:string; purchase_price?:number; purchase_date?:string };
 type Liability = { id:string; name:string; category:string; balance:number; lender:string|null; monthly_payment:number };
@@ -13,7 +14,7 @@ type Legacy = { id:string; title:string; record_type:string; status:string; prof
 type Reminder = { id:string; title:string; due_date:string; category:string; completed:boolean };
 type Retirement = { id:string; current_age:number; retirement_age:number; monthly_spending:number; current_savings:number; monthly_contribution:number; annual_return:number; inflation:number };
 type Profile = { full_name:string|null; onboarding_complete:boolean };
-type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"reminders"|"settings";
+type View = "home"|"wealth"|"protection"|"legacy"|"retirement"|"family"|"familyPack"|"guide"|"reminders"|"settings";
 
 const money = (n:number) => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR",maximumFractionDigits:0}).format(n);
 const date = (s:string|null) => s ? new Intl.DateTimeFormat("en-MY",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(s+"T00:00:00")) : "Not set";
@@ -21,6 +22,7 @@ const nav: {id:View; label:string; icon:string}[] = [
   {id:"home",label:"Home",icon:"⌂"},{id:"wealth",label:"My Wealth",icon:"◈"},{id:"protection",label:"Protection",icon:"◇"},
   {id:"legacy",label:"Legacy",icon:"✦"},{id:"retirement",label:"Retirement",icon:"◒"},{id:"family",label:"Family",icon:"♧"},
   {id:"familyPack",label:"Family Pack",icon:"▣"},
+  {id:"guide",label:"Vitala Guide",icon:"✧"},
   {id:"reminders",label:"Reminders",icon:"◷"},{id:"settings",label:"Settings",icon:"⚙"}
 ];
 
@@ -32,6 +34,7 @@ export default function Home(){
   const [contacts,setContacts]=useState<Contact[]>([]),[legacy,setLegacy]=useState<Legacy[]>([]),[reminders,setReminders]=useState<Reminder[]>([]),[retirement,setRetirement]=useState<Retirement|null>(null);
   const [familyPack,setFamilyPack]=useState<FamilyPackRecord|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[modal,setModal]=useState<string|null>(null),[notice,setNotice]=useState("");
+  const [guideOpen,setGuideOpen]=useState(false);
   const load=useCallback(async()=>{ setLoading(true); setError(""); const names=["assets","liabilities","policies","contacts","legacy_records","reminders","retirement_profiles"] as const;
     const result=await Promise.all([...names.map(n=>db.from(n).select("*").order("created_at" in {} ? "created_at":"id")),db.from("family_packs").select("*").maybeSingle()]);
     const failed=result.find(r=>r.error); if(failed?.error){setError("The database schema is not ready yet. Apply the included Supabase migration, then refresh.");setLoading(false);return;}
@@ -60,10 +63,11 @@ export default function Home(){
         {view==="retirement"&&<RetirementView profile={retirement} save={async(v)=>{await db.from("retirement_profiles").update(v).eq("id",retirement?.id);setNotice("Retirement assumptions updated.");await load()}}/>}
         {view==="family"&&<Family contacts={contacts} assets={assets} policies={policies} add={()=>setModal("contact")} remove={remove}/>} 
         {view==="familyPack"&&<FamilyPack record={familyPack} save={async draft=>{if(!account)return;const payload={owner_id:account.id,sections:draft.sections,completed_sections:draft.completed_sections,status:draft.completed_sections.length>=14?"ready":"draft"};const {error:e}=await db.from("family_packs").upsert(payload,{onConflict:"owner_id"});if(e){setNotice(`Could not save Family Pack: ${e.message}`);return}setNotice("Family Pack saved.");await load()}} preview={()=>window.print()}/>} 
+        {view==="guide"&&<VitalaGuide embedded facts={{score,assets:assets.length,liabilities:liabilities.length,policies:policies.length,trusted:contacts.filter(c=>c.emergency_access).length,legacy:legacy.length,packProgress,retirementAge:retirement?.retirement_age}}/>}
         {view==="reminders"&&<Reminders records={reminders} add={()=>setModal("reminder")} toggle={async(r)=>{await db.from("reminders").update({completed:!r.completed}).eq("id",r.id);await load()}} remove={remove}/>} 
         {view==="settings"&&<Settings/>}
       </>}</div>
-    </main>{modal==="asset"?<PropertyModal close={()=>setModal(null)} save={save}/>:modal&&<RecordModal type={modal} close={()=>setModal(null)} save={save}/>}</div>
+    </main>{guideOpen&&<VitalaGuide facts={{score,assets:assets.length,liabilities:liabilities.length,policies:policies.length,trusted:contacts.filter(c=>c.emergency_access).length,legacy:legacy.length,packProgress,retirementAge:retirement?.retirement_age}} close={()=>setGuideOpen(false)}/>}<button className="guide-fab" onClick={()=>setGuideOpen(!guideOpen)} aria-expanded={guideOpen}>✧ Vitala Guide</button>{modal==="asset"?<PropertyModal close={()=>setModal(null)} save={save}/>:modal&&<RecordModal type={modal} close={()=>setModal(null)} save={save}/>}</div>
 }
 
 function Title({eyebrow,title,copy,action,label="Add record"}:{eyebrow:string;title:string;copy:string;action?:()=>void;label?:string}){return <div className="title-row"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button className="primary" onClick={action}>＋ {label}</button>}</div>}
