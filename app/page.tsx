@@ -22,6 +22,7 @@ const nav: {id:View; label:string; icon:string}[] = [
 
 export default function Home(){
   const db=useMemo(()=>createClient(),[]); const [view,setView]=useState<View>("home"); const [menu,setMenu]=useState(false);
+  const [account,setAccount]=useState<{email?:string}|null>(null);
   const [assets,setAssets]=useState<Asset[]>([]),[liabilities,setLiabilities]=useState<Liability[]>([]),[policies,setPolicies]=useState<Policy[]>([]);
   const [contacts,setContacts]=useState<Contact[]>([]),[legacy,setLegacy]=useState<Legacy[]>([]),[reminders,setReminders]=useState<Reminder[]>([]),[retirement,setRetirement]=useState<Retirement|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[modal,setModal]=useState<string|null>(null),[notice,setNotice]=useState("");
@@ -30,7 +31,8 @@ export default function Home(){
     const failed=result.find(r=>r.error); if(failed?.error){setError("The database schema is not ready yet. Apply the included Supabase migration, then refresh.");setLoading(false);return;}
     setAssets((result[0].data||[]) as Asset[]);setLiabilities((result[1].data||[]) as Liability[]);setPolicies((result[2].data||[]) as Policy[]);setContacts((result[3].data||[]) as Contact[]);setLegacy((result[4].data||[]) as Legacy[]);setReminders((result[5].data||[]) as Reminder[]);setRetirement((result[6].data?.[0]||null) as Retirement|null);setLoading(false);
   },[db]);
-  useEffect(()=>{load()},[load]);
+  useEffect(()=>{load();db.auth.getUser().then(({data})=>setAccount(data.user));const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>setAccount(session?.user||null));return()=>subscription.unsubscribe()},[load,db]);
+  useEffect(()=>{if(!menu)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setMenu(false)};document.addEventListener("keydown",close);document.body.classList.add("drawer-open");return()=>{document.removeEventListener("keydown",close);document.body.classList.remove("drawer-open")}},[menu]);
   async function save(table:string, values:Record<string,unknown>){const {error:e}=await db.from(table).insert(values);if(e){setNotice("Could not save. Please try again.");return} await db.from("audit_events").insert({action:"created",entity_type:table,details:{name:values.name||values.title||values.provider}});setModal(null);setNotice("Saved securely to your family organiser.");await load()}
   async function remove(table:string,id:string){if(!confirm("Delete this record? This removes it from your organiser."))return;await db.from(table).delete().eq("id",id);setNotice("Record deleted.");await load()}
   const totals=useMemo(()=>({assets:assets.reduce((a,x)=>a+Number(x.value),0),debts:liabilities.reduce((a,x)=>a+Number(x.balance),0),coverage:policies.reduce((a,x)=>a+Number(x.coverage),0)}),[assets,liabilities,policies]);
@@ -39,10 +41,10 @@ export default function Home(){
   return <div className="shell">
     <aside className={menu?"sidebar open":"sidebar"} aria-label="Primary navigation"><div className="brand"><span className="brandmark">VA</span><div><b>Vitala Amanah</b><small>Your family organiser</small></div></div>
       <nav>{nav.map(n=><button key={n.id} className={view===n.id?"active":""} onClick={()=>go(n.id)}><span aria-hidden>{n.icon}</span>{n.label}</button>)}</nav>
-      <div className="sidebar-foot"><span className="demo-dot"/> Demo workspace<br/><small>Fictional sample data</small></div>
+      <div className="sidebar-foot">{account?<><span className="demo-dot"/> Signed in<br/><small>{account.email}</small><button className="account-link" onClick={async()=>{await db.auth.signOut();setMenu(false);setNotice("You are signed out. The demo remains available.")}}>Sign out</button></>:<><span className="demo-dot"/> Demo workspace<br/><small>Fictional sample data</small><a className="account-link" href="/login">Sign in or create account</a></>}</div>
     </aside>
     {menu&&<button className="backdrop" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}<main>
-      <header><button className="hamburger" onClick={()=>setMenu(!menu)} aria-label="Open navigation">☰</button><div className="mobile-brand">Vitala Amanah</div><div className="header-actions"><button className="text-button">EN / BM</button><button className="avatar" aria-label="Demo profile">NR</button></div></header>
+      <header><button className="hamburger" onClick={()=>setMenu(!menu)} aria-label={menu?"Close navigation":"Open navigation"} aria-expanded={menu}>☰</button><div className="mobile-brand">Vitala Amanah</div><div className="header-actions"><button className="text-button" onClick={()=>setNotice("Bahasa Melayu content is being prepared; English remains selected.")}>EN / BM</button>{account?<button className="avatar" aria-label="Account profile" title={account.email}>{account.email?.slice(0,2).toUpperCase()}</button>:<a className="header-login" href="/login">Sign in</a>}</div></header>
       <div className="content">{notice&&<div className="toast" role="status">✓ {notice}</div>}{error&&<div className="error"><b>Database setup needed</b><span>{error}</span></div>}{loading?<Loading/>:<>
         {view==="home"&&<Dashboard totals={totals} score={score} reminders={reminders} assets={assets} go={go} add={()=>setModal("asset")}/>} 
         {view==="wealth"&&<Wealth assets={assets} liabilities={liabilities} totals={totals} add={setModal} remove={remove}/>} 
