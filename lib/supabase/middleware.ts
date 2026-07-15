@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
 
     // Refresh session so it doesn't expire while user is active
     const { data: { user } } = await supabase.auth.getUser();
-    if ((request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/onboarding")) && !user) {
+    if ((request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/onboarding")) && !user) {
       const login = request.nextUrl.clone();
       login.pathname = "/login";
       login.searchParams.set("next", request.nextUrl.pathname);
