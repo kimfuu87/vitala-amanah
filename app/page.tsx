@@ -9,9 +9,9 @@ const features=[
   ["Documents","Track important document metadata and expiry dates while sensitive uploads remain disabled for review."]
 ];
 const plans=[
-  {name:"Free",price:"RM0",tag:"Start organising",items:["10 wealth records","3 policy records","2 trusted contacts","Basic readiness dashboard"]},
-  {name:"Pro",price:"RM19.90",tag:"Most popular",items:["Complete structured records","Full retirement planner","Reports and reminders","Up to 10 trusted contacts"]},
-  {name:"Family",price:"RM39.90",tag:"Best for families",items:["2 adult seats","5 dependant/viewer seats","Separate adult workspaces","Shared emergency planning"]}
+  {name:"Free",price:"RM0",tag:"Individual",items:["10 structured records","No added family profiles","2 trusted contacts","Basic readiness dashboard"]},
+  {name:"Pro",price:"RM19.90",tag:"Most popular",items:["Full planning and reports","1 managed family profile","Up to 10 trusted contacts","2 GB storage"]},
+  {name:"Family",price:"RM39.90",tag:"Best for households",items:["2 private adult seats","Up to 5 managed dependants","Member workspace switcher","5 GB shared storage"]}
 ];
 
 export default function PublicHome(){return <main className="public-site">
