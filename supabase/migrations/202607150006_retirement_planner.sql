@@ -1,0 +1,23 @@
+alter table public.retirement_profiles add column if not exists life_expectancy integer not null default 85;
+alter table public.retirement_profiles add column if not exists epf_balance numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists prs_balance numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists cash_investments numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists employer_contribution numeric(12,2) not null default 0;
+alter table public.retirement_profiles add column if not exists post_retirement_return numeric(5,2) not null default 4;
+alter table public.retirement_profiles add column if not exists debt_balance numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists debt_payment numeric(12,2) not null default 0;
+alter table public.retirement_profiles add column if not exists property_value numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists property_loan numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists rental_income numeric(12,2) not null default 0;
+alter table public.retirement_profiles add column if not exists vacancy_rate numeric(5,2) not null default 5;
+alter table public.retirement_profiles add column if not exists property_expenses numeric(12,2) not null default 0;
+alter table public.retirement_profiles add column if not exists other_retirement_income numeric(12,2) not null default 0;
+alter table public.retirement_profiles add column if not exists dependants integer not null default 0;
+alter table public.retirement_profiles add column if not exists education_commitments numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists healthcare_buffer numeric(14,2) not null default 100000;
+alter table public.retirement_profiles add column if not exists desired_legacy numeric(14,2) not null default 0;
+alter table public.retirement_profiles add column if not exists scenario_name text not null default 'Expected';
+alter table public.retirement_profiles add column if not exists data_classification text not null default 'confidential';
+alter table public.retirement_profiles add column if not exists deleted_at timestamptz;
+
+comment on table public.retirement_profiles is 'Owner assumptions for educational retirement projections; outputs are estimates, not advice or guarantees.';

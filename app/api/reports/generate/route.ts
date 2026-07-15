@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 
 type ReportRequest = { reportType?: "family-pack" | "professional-review"; includedSections?: string[]; redacted?: boolean };
 type Line = { heading?: boolean; text: string };
+type Row = Record<string, unknown>;
 
 const clean = (value: unknown) => String(value ?? "Not recorded").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim();
 const money = (value: unknown) => `RM ${Number(value || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}`;
@@ -39,13 +40,13 @@ export async function POST(request: Request) {
   const section = (title: string, values: string[]) => { lines.push({ heading: true, text: title }); values.filter(Boolean).forEach(text => lines.push({ text })); };
   if (included.includes("owner")) section("Owner information", [`Name: ${clean(profile?.full_name || user.user_metadata?.full_name || user.email)}`, `Account: ${clean(profile?.account_type || "individual")}`]);
   if (included.includes("family")) section("Spouse and dependants", [clean(pack?.sections?.spouse_dependants || "Not recorded")]);
-  if (included.includes("contacts")) section("Emergency and trusted contacts", contacts.map((c: any) => `${clean(c.name)} - ${clean(c.relationship)} - ${redacted ? mask(c.phone || c.email) : clean(c.phone || c.email)}`));
-  if (included.includes("protection")) section("Insurance and takaful", policies.map((p: any) => `${clean(p.provider)} - ${clean(p.policy_type)} - ${redacted ? mask(p.masked_number) : clean(p.masked_number)} - Coverage ${redacted ? "Withheld" : money(p.coverage)}`));
-  if (included.includes("assets")) section("Asset summary", assets.map((a: any) => `${clean(a.name)} - ${clean(a.category)} - ${redacted ? "Value withheld" : money(a.value)} - Ownership ${clean(a.ownership_percentage || 100)}%`));
-  if (included.includes("liabilities")) section("Liabilities and commitments", liabilities.map((l: any) => `${clean(l.name)} - ${redacted ? "Balance withheld" : money(l.balance)} - Monthly ${money(l.monthly_payment)}`));
-  if (included.includes("legacy")) section("Legacy, nomination and hibah records", legacy.map((l: any) => `${clean(l.title)} - ${clean(l.record_type)} - ${clean(l.status)}`));
-  if (included.includes("professionals")) section("Professional contacts", professionals.filter((p: any) => !p.is_directory_demo).map((p: any) => `${clean(p.name)} - ${clean(p.category)} - ${redacted ? mask(p.telephone || p.email) : clean(p.telephone || p.email)}`));
-  if (included.includes("documents")) section("Original document locations", documents.map((d: any) => `${clean(d.name)} - ${clean(d.original_location)} - Expiry ${clean(d.expiry_date)}`));
+  if (included.includes("contacts")) section("Emergency and trusted contacts", (contacts as Row[]).map(c => `${clean(c.name)} - ${clean(c.relationship)} - ${redacted ? mask(c.phone || c.email) : clean(c.phone || c.email)}`));
+  if (included.includes("protection")) section("Insurance and takaful", (policies as Row[]).map(p => `${clean(p.provider)} - ${clean(p.policy_type)} - ${redacted ? mask(p.masked_number) : clean(p.masked_number)} - Coverage ${redacted ? "Withheld" : money(p.coverage)}`));
+  if (included.includes("assets")) section("Asset summary", (assets as Row[]).map(a => `${clean(a.name)} - ${clean(a.category)} - ${redacted ? "Value withheld" : money(a.value)} - Ownership ${clean(a.ownership_percentage || 100)}%`));
+  if (included.includes("liabilities")) section("Liabilities and commitments", (liabilities as Row[]).map(l => `${clean(l.name)} - ${redacted ? "Balance withheld" : money(l.balance)} - Monthly ${money(l.monthly_payment)}`));
+  if (included.includes("legacy")) section("Legacy, nomination and hibah records", (legacy as Row[]).map(l => `${clean(l.title)} - ${clean(l.record_type)} - ${clean(l.status)}`));
+  if (included.includes("professionals")) section("Professional contacts", (professionals as Row[]).filter(p => !p.is_directory_demo).map(p => `${clean(p.name)} - ${clean(p.category)} - ${redacted ? mask(p.telephone || p.email) : clean(p.telephone || p.email)}`));
+  if (included.includes("documents")) section("Original document locations", (documents as Row[]).map(d => `${clean(d.name)} - ${clean(d.original_location)} - Expiry ${clean(d.expiry_date)}`));
   if (included.includes("instructions")) section("Owner instructions and immediate actions", [clean(pack?.sections?.personal_instructions || "Not recorded"), clean(pack?.sections?.immediate_action_checklist || "Not recorded")]);
 
   const pdf = await PDFDocument.create();
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
   y -= 12; page.drawText("Important disclaimer", { x:42,y,size:11,font:bold }); y -= 16;
   page.drawText("This report organises owner-recorded information. It is not legal, financial, tax, insurance or inheritance advice and does not claim legal validity.", { x:42,y,size:8,font:regular,maxWidth:505,lineHeight:11 });
   footer();
-  await supabase.from("report_events").insert({ owner_id:user.id, family_pack_id:(packs[0] as any)?.id || null, report_type:reportType, report_id:reportId, included_sections:included, redacted, status:"downloaded", expires_at:new Date(Date.now()+10*60*1000).toISOString() });
+  await supabase.from("report_events").insert({ owner_id:user.id, family_pack_id:(packs[0] as Row | undefined)?.id || null, report_type:reportType, report_id:reportId, included_sections:included, redacted, status:"downloaded", expires_at:new Date(Date.now()+10*60*1000).toISOString() });
   await supabase.from("audit_events").insert({ owner_id:user.id, action:"report_downloaded", entity_type:"report", details:{report_id:reportId,report_type:reportType,redacted} });
   const bytes = await pdf.save();
   return new Response(Buffer.from(bytes), { headers:{ "Content-Type":"application/pdf", "Content-Disposition":`attachment; filename="${reportType}-${reportId}.pdf"`, "Cache-Control":"private, no-store, max-age=0" } });
