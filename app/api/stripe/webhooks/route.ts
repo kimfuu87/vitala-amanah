@@ -1,5 +1,5 @@
 import { constructWebhookEvent } from "@/lib/stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   try {
     switch (event.type) {
@@ -53,12 +53,12 @@ export async function POST(request: Request) {
         // If subscription, the subscription.updated event will handle status
         if (session.mode === "payment") {
           await supabase.from("purchases").upsert({
-            user_id: userId,
-            stripe_customer_id: session.customer,
-            stripe_session_id: session.id,
-            amount_total: session.amount_total,
+            owner_id: userId,
+            provider: "stripe",
+            external_reference: session.id,
+            amount_sen: session.amount_total,
             status: "paid",
-          });
+          },{onConflict:"provider,external_reference"});
         }
         break;
       }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
         await supabase.from("subscriptions").upsert({
           id: sub.id,
-          user_id: userId,
+          owner_id: userId,
           stripe_customer_id: sub.customer as string,
           status: sub.status,
           price_id: sub.items.data[0]?.price.id,
@@ -80,6 +80,8 @@ export async function POST(request: Request) {
           cancel_at_period_end: sub.cancel_at_period_end,
           updated_at: new Date().toISOString(),
         });
+        const plan=sub.metadata?.plan==="family"?"family":"pro";
+        await supabase.from("profiles").update({plan:sub.status==="active"?plan:"free",renewal_date:new Date(sub.current_period_end*1000).toISOString().slice(0,10),grace_period_ends_at:null}).eq("id",userId);
         break;
       }
 
@@ -90,14 +92,16 @@ export async function POST(request: Request) {
           .from("subscriptions")
           .update({ status: "canceled", updated_at: new Date().toISOString() })
           .eq("id", sub.id);
+        await supabase.from("profiles").update({grace_period_ends_at:new Date(Date.now()+30*86400000).toISOString()}).eq("stripe_customer_id",sub.customer as string);
         break;
       }
 
       // ── Payment failed — notify user ──────────────────────────────────────
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.warn("[stripe/webhooks] payment failed for customer:", invoice.customer);
-        // TODO: send email via Supabase Edge Function or Resend
+        const customer=invoice.customer as string;
+        const {data:profile}=await supabase.from("profiles").select("id").eq("stripe_customer_id",customer).maybeSingle();
+        if(profile?.id){await supabase.from("payment_records").upsert({owner_id:profile.id,provider:"stripe",external_reference:invoice.id,amount_sen:invoice.amount_due||0,status:"failed"},{onConflict:"provider,external_reference"});await supabase.from("profiles").update({grace_period_ends_at:new Date(Date.now()+30*86400000).toISOString()}).eq("id",profile.id)}
         break;
       }
 

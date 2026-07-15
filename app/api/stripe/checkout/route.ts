@@ -27,7 +27,10 @@ export async function POST(request: Request) {
       cancelUrl?: string;
     };
 
-    if (!priceId) {
+    if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({error:"Stripe credentials are not configured."},{status:503});
+    const prices={pro:process.env.STRIPE_PRO_MONTHLY_PRICE_ID||process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,family:process.env.STRIPE_FAMILY_MONTHLY_PRICE_ID||process.env.NEXT_PUBLIC_STRIPE_FAMILY_MONTHLY_PRICE_ID};
+    const plan=Object.entries(prices).find(([,id])=>id===priceId)?.[0] as "pro"|"family"|undefined;
+    if (!priceId || !plan) {
       return NextResponse.json({ error: "priceId is required" }, { status: 400 });
     }
 
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
       userId: user.id,
       successUrl: successUrl ?? `${origin}/dashboard?checkout=success`,
       cancelUrl: cancelUrl ?? `${origin}/dashboard?checkout=canceled`,
+      plan,
     });
 
     return NextResponse.json({ url: session.url });

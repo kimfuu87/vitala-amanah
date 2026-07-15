@@ -50,6 +50,7 @@ export async function createCheckoutSession({
   successUrl,
   cancelUrl,
   mode = "subscription",
+  plan = "pro",
 }: {
   priceId: string;
   customerId?: string;
@@ -57,13 +58,14 @@ export async function createCheckoutSession({
   successUrl: string;
   cancelUrl: string;
   mode?: "payment" | "subscription";
+  plan?: "pro" | "family";
 }) {
   const params: Stripe.Checkout.SessionCreateParams = {
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: successUrl,
     cancel_url: cancelUrl,
-    metadata: { userId },
+    metadata: { userId, plan },
     ...(customerId
       ? { customer: customerId }
       : { customer_creation: "always" }),
@@ -72,12 +74,12 @@ export async function createCheckoutSession({
     ...(mode === "subscription" && PLATFORM_FEE_PERCENT > 0
       ? {
           subscription_data: {
-            metadata: { userId },
+            metadata: { userId, plan },
             application_fee_percent: PLATFORM_FEE_PERCENT,
           },
         }
       : mode === "subscription"
-      ? { subscription_data: { metadata: { userId } } }
+      ? { subscription_data: { metadata: { userId, plan } } }
       : {}),
 
     // One-time payment platform fee — calculated after price lookup
