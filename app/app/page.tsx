@@ -87,7 +87,7 @@ export default function Home(){
         {view==="claims"&&<ClaimsCentre records={activeClaims} save={save} update={update} remove={remove}/>}
         {view==="documents"&&<Documents records={activeDocuments} save={save} update={update} remove={remove}/>}
         {view==="professionals"&&<Professionals records={professionals} save={save} update={update} remove={remove}/>}
-        {view==="guide"&&<VitalaGuide embedded facts={{score,assets:activeAssets.length,liabilities:activeLiabilities.length,policies:activePolicies.length,trusted:activeContacts.filter(c=>c.emergency_access).length,legacy:activeLegacy.length,packProgress,retirementAge:retirement?.retirement_age}}/>}
+        {view==="guide"&&<VitalaGuide embedded navigate={destination=>go(destination)} facts={{score,assets:activeAssets.length,liabilities:activeLiabilities.length,policies:activePolicies.length,trusted:activeContacts.filter(c=>c.emergency_access).length,legacy:activeLegacy.length,packProgress,retirementAge:retirement?.retirement_age}}/>}
         {view==="reports"&&<ReportsCentre/>}
         {view==="reminders"&&<Reminders records={activeReminders} add={()=>setModal("reminder")} edit={setEditing} toggle={async(r)=>{await db.from("reminders").update({completed:!r.completed}).eq("id",r.id);await load()}} remove={remove}/>}
         {view==="billing"&&<><FoundingTrial/><Billing profile={{...profile,record_count:assets.length+liabilities.length+policies.length+contacts.length+legacy.length+documents.length}} payments={payments}/></>}
